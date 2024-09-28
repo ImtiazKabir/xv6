@@ -1,60 +1,27 @@
-// On-disk file system format.
-// Both the kernel and user programs use this header file.
+#ifndef KERNEL_FS_H_
+#define KERNEL_FS_H_
+#include "common/fs.h"
+#include "common/stat.h"
 
+struct inode;
 
-#define ROOTINO  1   // root i-number
-#define BSIZE 1024  // block size
+void fsinit(int dev);
+int dirlink(struct inode *dp, char *name, uint inum);
+struct inode *dirlookup(struct inode *dp, char *name, uint *poff);
+struct inode *ialloc(uint dev, short type);
+struct inode *idup(struct inode *ip);
+void iinit(void);
+void ilock(struct inode *ip);
+void iput(struct inode *ip);
+void iunlock(struct inode *ip);
+void iunlockput(struct inode *ip);
+void iupdate(struct inode *ip);
+int namecmp(const char *s, const char *t);
+struct inode *namei(char const *path);
+struct inode *nameiparent(char *path, char *name);
+int readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n);
+void stati(struct inode *ip, struct stat *stat);
+int writei(struct inode *ip, int, uint64 user_src, uint src, uint n);
+void itrunc(struct inode *ip);
 
-// Disk layout:
-// [ boot block | super block | log | inode blocks |
-//                                          free bit map | data blocks]
-//
-// mkfs computes the super block and builds an initial file system. The
-// super block describes the disk layout:
-struct superblock {
-  uint magic;        // Must be FSMAGIC
-  uint size;         // Size of file system image (blocks)
-  uint nblocks;      // Number of data blocks
-  uint ninodes;      // Number of inodes.
-  uint nlog;         // Number of log blocks
-  uint logstart;     // Block number of first log block
-  uint inodestart;   // Block number of first inode block
-  uint bmapstart;    // Block number of first free map block
-};
-
-#define FSMAGIC 0x10203040
-
-#define NDIRECT 12
-#define NINDIRECT (BSIZE / sizeof(uint))
-#define MAXFILE (NDIRECT + NINDIRECT)
-
-// On-disk inode structure
-struct dinode {
-  short type;           // File type
-  short major;          // Major device number (T_DEVICE only)
-  short minor;          // Minor device number (T_DEVICE only)
-  short nlink;          // Number of links to inode in file system
-  uint size;            // Size of file (bytes)
-  uint addrs[NDIRECT+1];   // Data block addresses
-};
-
-// Inodes per block.
-#define IPB           (BSIZE / sizeof(struct dinode))
-
-// Block containing inode i
-#define IBLOCK(i, sb)     ((i) / IPB + sb.inodestart)
-
-// Bitmap bits per block
-#define BPB           (BSIZE*8)
-
-// Block of free map containing bit for block b
-#define BBLOCK(b, sb) ((b)/BPB + sb.bmapstart)
-
-// Directory is a file containing a sequence of dirent structures.
-#define DIRSIZ 14
-
-struct dirent {
-  ushort inum;
-  char name[DIRSIZ];
-};
-
+#endif // !KERNEL_FS_H_

@@ -1,11 +1,13 @@
 K=kernel
 U=user
+C=common
 
 OBJS = \
   $K/entry.o \
   $K/start.o \
   $K/console.o \
   $K/printf.o \
+  $K/riscv.o \
   $K/uart.o \
   $K/kalloc.o \
   $K/spinlock.o \
@@ -28,7 +30,8 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o \
+  $K/bang.o
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -56,10 +59,10 @@ LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
-CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb -gdwarf-2
+CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb -gdwarf-2 -pedantic
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
-# CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
+CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
 CFLAGS += -fno-common -nostdlib -mno-relax
 CFLAGS += -fno-builtin-strncpy -fno-builtin-strncmp -fno-builtin-strlen -fno-builtin-memset
 CFLAGS += -fno-builtin-memmove -fno-builtin-memcmp -fno-builtin-log -fno-builtin-bzero
@@ -101,6 +104,9 @@ _%: %.o $(ULIB)
 	$(OBJDUMP) -S $@ > $*.asm
 	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 
+%.o: %.S
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $U/usys.S : $U/usys.pl
 	perl $U/usys.pl > $U/usys.S
 
@@ -113,7 +119,7 @@ $U/_forktest: $U/forktest.o $(ULIB)
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o
 	$(OBJDUMP) -S $U/_forktest > $U/forktest.asm
 
-mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
+mkfs/mkfs: mkfs/mkfs.c $C/fs.h $C/param.h
 	gcc -Werror -Wall -I. -o mkfs/mkfs mkfs/mkfs.c
 
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
@@ -139,6 +145,9 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	$U/_trace\
+	$U/_load\
+	$U/_test\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

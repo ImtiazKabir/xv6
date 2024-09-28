@@ -16,3 +16,4 @@ kernel/kernel
 user/usys.S
 .gdbinit
 compile_flags.txt
+head.txt

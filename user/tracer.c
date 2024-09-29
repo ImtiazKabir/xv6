@@ -27,7 +27,6 @@ int main(register int const argc, register char const **const argv) {
     if (pid == 0) {
       (void)trace(syscall_id);
       (void)exec(argv[2u], &argv[2u]);
-      (void)printf("Told ya\n");
     } else {
       auto int wstatus = 0;
 

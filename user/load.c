@@ -1,6 +1,9 @@
 #include "common/memlayout.h"
 #include "common/procinfo.h"
+
+#include "printf.h"
 #include "ulib.h"
+#include "umalloc.h"
 #include "usys.h"
 
 #define STDOUT 1
@@ -9,7 +12,7 @@
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 
-extern int main(int argc, char const **const argv) __attribute__((noreturn));
+extern int main(int argc, char const *const *argv) __attribute__((noreturn));
 
 static void init(int lockoffset) {
   register int *const lk = (int *)(((char *)CSHARED) + lockoffset);
@@ -121,7 +124,7 @@ static void load(register int const child_count,
   }
 }
 
-int main(register int const argc, register char const **const argv) {
+int main(register int const argc, register char const *const *const argv) {
   if (argc != 3) {
     fprintf(STDERR, "usage: %s child_count allocation_amount\n", argv[0u]);
     exit(EXIT_FAILURE);

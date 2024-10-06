@@ -7,6 +7,7 @@
 #include "common/stat.h"
 #include "common/types.h"
 
+#include "printf.h"
 #include "ulib.h"
 #include "usys.h"
 

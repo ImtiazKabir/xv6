@@ -5,7 +5,9 @@
 #include "common/riscv.h"
 #include "common/types.h"
 
+#include "printf.h"
 #include "ulib.h"
+#include "umalloc.h"
 #include "usys.h"
 
 //

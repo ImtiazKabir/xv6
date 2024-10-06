@@ -1,5 +1,6 @@
 #include "common/memlayout.h"
 
+#include "printf.h"
 #include "ulib.h"
 #include "usys.h"
 

@@ -1,6 +1,7 @@
 // Simple grep.  Only supports ^ . * $ operators.
 
 #include "common/fcntl.h"
+#include "printf.h"
 #include "ulib.h"
 #include "usys.h"
 

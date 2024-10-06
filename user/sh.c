@@ -1,7 +1,9 @@
 // Shell.
 
 #include "common/fcntl.h"
+#include "printf.h"
 #include "ulib.h"
+#include "umalloc.h"
 #include "usys.h"
 
 // Parsed command representation

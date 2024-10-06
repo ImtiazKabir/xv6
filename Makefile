@@ -148,6 +148,8 @@ UPROGS=\
 	$U/_trace\
 	$U/_load\
 	$U/_test\
+	$U/_qed\
+	$U/_broas\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

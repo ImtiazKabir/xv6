@@ -2,43 +2,25 @@
 #include "ulib.h"
 #include "usys.h"
 
-#define STDERR 2
+#define MAXARG 100
 
-#define EXIT_SUCCESS 0
-#define EXIT_FAILURE 1
+int main(int argc, char *argv[]) {
+  int i;
+  char *nargv[MAXARG];
 
-extern int main(int argc, char const **const argv) __attribute__((noreturn));
-
-int main(register int const argc, register char const **const argv) {
-  register int syscall_id = 0;
-
-  if (argc < 3) {
-    fprintf(STDERR, "usage: %s syscall_id command\n", argv[0u]);
-    exit(EXIT_FAILURE);
+  if (argc < 3 || (argv[1][0] < '0' || argv[1][0] > '9')) {
+    fprintf(2, "Usage: %s sys_call_num command\n", argv[0]);
+    exit(1);
   }
 
-  syscall_id = atoi(argv[1]);
-  if (syscall_id <= 0) {
-    fprintf(STDERR, "Invalid syscall_id");
-    exit(EXIT_FAILURE);
+  if (trace(atoi(argv[1])) < 0) {
+    fprintf(2, "%s: trace failed\n", argv[0]);
+    exit(1);
   }
 
-  {
-    register int const pid = fork();
-    if (pid == 0) {
-      (void)trace(syscall_id);
-      (void)exec(argv[2u], &argv[2u]);
-    } else {
-      auto int wstatus = 0;
-
-      (void)wait(&wstatus);
-
-      if (wstatus != EXIT_SUCCESS) {
-        printf("Trace failed");
-        exit(wstatus);
-      }
-    }
+  for (i = 2; i < argc && i < MAXARG; i++) {
+    nargv[i - 2] = argv[i];
   }
-
-  exit(EXIT_SUCCESS);
+  exec(nargv[0], (char const **)nargv);
+  exit(0);
 }

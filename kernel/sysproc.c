@@ -2,6 +2,7 @@
 #include "common/param.h"
 #include "common/procinfo.h"
 #include "common/types.h"
+
 #include "proc.h"
 #include "syscall.h"
 #include "trap.h"
@@ -72,11 +73,6 @@ uint64 sys_uptime(void) {
   xticks = ticks;
   release(&tickslock);
   return xticks;
-}
-
-uint64 sys_trace(void) {
-  argint(0, &myproc()->trace_id);
-  return 0u;
 }
 
 uint64 sys_info(void) {

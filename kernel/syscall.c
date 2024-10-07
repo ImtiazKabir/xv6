@@ -265,3 +265,13 @@ void syscall(void) {
     p->trapframe->a0 = -1;
   }
 }
+
+uint64 sys_trace(void) {
+  auto int trace_id;
+  argint(0, &trace_id);
+  if ((trace_id < 1) || (trace_id >= (int)NELEM(syscalls))) {
+    return (uint64)(-1);
+  }
+  myproc()->trace_id = trace_id;
+  return 0u;
+}

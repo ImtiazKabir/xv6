@@ -120,7 +120,7 @@ static void load(register int const child_count,
   }
   crel(0);
 
-  while (wait(0) == 0) {
+  while (wait(0) != -1) {
   }
 }
 

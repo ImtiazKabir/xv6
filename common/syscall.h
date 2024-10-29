@@ -27,5 +27,8 @@
 #define SYS_info 23
 #define SYS_getlast 24
 #define SYS_setlast 25
+#define SYS_seed 26
+#define SYS_rand 27
+
 
 #endif /* !COMMON_SYSCALL_H_ */

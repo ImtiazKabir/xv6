@@ -51,3 +51,5 @@ entry("trace");
 entry("info");
 entry("getlast");
 entry("setlast");
+entry("seed");
+entry("rand");

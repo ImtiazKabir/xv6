@@ -38,7 +38,7 @@ int do_rand(unsigned long *ctx) {
 
 unsigned long rand_next = 1;
 
-int rand(void) { return (do_rand(&rand_next)); }
+int xv6_rand(void) { return (do_rand(&rand_next)); }
 
 void go(int which_child) {
   int fd = -1;

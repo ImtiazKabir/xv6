@@ -1,6 +1,8 @@
 #ifndef USER_USYS_H_
 #define USER_USYS_H_
 
+#include "common/types.h"
+
 struct procInfo;
 struct stat;
 
@@ -30,5 +32,7 @@ int trace(int sysid);
 int info(struct procInfo *in);
 int getlast(char *dest, int index);
 int setlast(char const *cmd);
+void seed(uint64 seed);
+uint64 rand(void);
 
 #endif /* !USER_USYS_H_ */

@@ -1,7 +1,7 @@
 #include "common/types.h"
 #include "kernel/syscall.h"
 
-static uint64 seed;
+static uint64 seed = 2005041;
 
 uint64 sys_seed(void) {
   seed = argraw(0);

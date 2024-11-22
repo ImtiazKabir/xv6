@@ -97,6 +97,9 @@ uint64 (*syscalls[])(void) = {
 [SYS_setlast] = sys_setlast,
 [SYS_seed] = sys_seed,
 [SYS_rand] = sys_rand,
+[SYS_thread_create] = sys_thread_create,
+[SYS_thread_join] = sys_thread_join,
+[SYS_thread_exit] = sys_thread_exit
 };
 // clang-format on
 

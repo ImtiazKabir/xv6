@@ -33,7 +33,10 @@ static char const *const syscall_name[] = {
 [SYS_getlast] = "getlast",
 [SYS_setlast] = "setlast",
 [SYS_seed] = "seed",
-[SYS_rand] = "rand"
+[SYS_rand] = "rand",
+[SYS_thread_create] = "thread_create",
+[SYS_thread_join] = "thread_join",
+[SYS_thread_exit] = "thread_exit"
 };
 // clang-format on
 

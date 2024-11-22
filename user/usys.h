@@ -34,5 +34,8 @@ int getlast(char *dest, int index);
 int setlast(char const *cmd);
 void seed(uint64 seed);
 uint64 rand(void);
+int thread_create(void (*start_routine)(void *), void *arg, void *stack);
+int thread_join(int thread_id);
+void thread_exit(void);
 
 #endif /* !USER_USYS_H_ */

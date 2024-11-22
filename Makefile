@@ -154,6 +154,7 @@ UPROGS=\
 	$U/_broas\
 	$U/_seed\
 	$U/_rand\
+	$U/_threads\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

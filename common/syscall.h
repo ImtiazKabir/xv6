@@ -29,6 +29,9 @@
 #define SYS_setlast 25
 #define SYS_seed 26
 #define SYS_rand 27
+#define SYS_thread_create 28
+#define SYS_thread_join 29
+#define SYS_thread_exit 30
 
 
 #endif /* !COMMON_SYSCALL_H_ */

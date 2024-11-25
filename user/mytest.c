@@ -1,16 +1,25 @@
+#include "common/riscv.h"
+
 #include "printf.h"
 #include "ulib.h"
 #include "usys.h"
+#include "umalloc.h"
 
 
 void start(void *num) {
-  printf("Id: %d\n", *(int *)num);
-  exit(0);
+  printf("Arg: %d\n", *(int *)num);
+  sleep(100);
+  thread_exit();
 }
 
 int main(int argc, char *argv[]) {
-  auto int id = 2005041;
+  auto int num = 2005041;
+  register int tid = 0;
+
+  void *stack = malloc(PGSIZE);
   (void)argc, (void)argv;
-  thread_create(start, &id, 0);
+  tid = thread_create(start, &num, stack);
+  thread_join(tid);
+
   exit(0);
 }

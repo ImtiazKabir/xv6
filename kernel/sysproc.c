@@ -19,7 +19,7 @@ uint64 sys_exit(void) {
 uint64 sys_getpid(void) { return myproc()->pid; }
 
 uint64 sys_fork(void) { 
-  return fork()->pid;
+  return fork(1)->pid;
 }
 
 uint64 sys_wait(void) {

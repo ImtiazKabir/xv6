@@ -25,7 +25,6 @@ int nextpid = 1;
 struct spinlock pid_lock;
 
 extern void forkret(void);
-static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
@@ -103,7 +102,7 @@ int allocpid() {
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
 // If there are no free procs, or a memory allocation fails, return 0.
-static struct proc *allocproc(void) {
+struct proc *allocproc(void) {
   struct proc *p;
 
   for (p = proc; p < &proc[NPROC]; p++) {
@@ -127,24 +126,6 @@ found:
     return 0;
   }
 
-  // Allocate a cshared page
-  if ((p->pshared = (struct trapframe *)kalloc()) == 0) {
-    // kfree(p->trapframe);
-    freeproc(p);
-    release(&p->lock);
-    return 0;
-  }
-
-  // Allocate a cshared page
-  if ((p->cshared = (struct trapframe *)kalloc()) == 0) {
-    // kfree(p->pshared);
-    // kfree(p->trapframe);
-    freeproc(p);
-    release(&p->lock);
-    return 0;
-  }
-
-  // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if (p->pagetable == 0) {
     freeproc(p);
@@ -164,15 +145,11 @@ found:
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
-static void freeproc(struct proc *p) {
+void freeproc(struct proc *p) {
   if (p->trapframe)
     kfree((void *)p->trapframe);
   p->trapframe = 0;
-  if (p->pshared)
-    kfree(p->pshared);
-  if (p->cshared)
-    kfree(p->cshared);
-  if (p->pagetable) {
+  if (p->is_thread == 0 && p->pagetable) {
     proc_freepagetable(p->pagetable, p->sz);
   }
   p->pagetable = 0;
@@ -281,21 +258,27 @@ int growproc(int n) {
 
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
-struct proc *fork(void) {
+struct proc *fork(register int const process) {
   int i;
   struct proc *np;
   struct proc *p = myproc();
+  int ret;
 
   // Allocate process.
   if ((np = allocproc()) == 0) {
     return 0;
   }
 
-  // Copy user memory from parent to child.
-  if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
-    freeproc(np);
-    release(&np->lock);
-    return 0;
+  if (process != 0) {
+    // Copy user memory from parent to child.
+    ret = uvmcopy(p->pagetable, np->pagetable, p->sz);
+  } else {
+    ret = uvmmirror(p->pagetable, np->pagetable, p->sz);
+  }
+  if (ret < 0) {
+      freeproc(np);
+      release(&np->lock);
+      return 0;
   }
   np->sz = p->sz;
 
@@ -323,21 +306,6 @@ struct proc *fork(void) {
   acquire(&np->lock);
   np->state = RUNNABLE;
   release(&np->lock);
-
-  return np;
-}
-
-struct proc *forkmirror(void) {
-  register struct proc *const p = myproc();
-  register struct proc *const np = fork();
-
-  // unmap the forked unshared memory
-  uvmunmap(np->pagetable, 0, np->sz / PGSIZE, 1);
-
-  // Mirror the parent's memory into the child's page table
-  if (uvmmirror(p->pagetable, np->pagetable, p->sz) < 0) {
-    panic("forkmirror: failed to mirror pages");
-  }
 
   return np;
 }

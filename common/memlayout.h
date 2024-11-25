@@ -68,6 +68,4 @@
 //   TRAMPOLINE (the same page as in the kernel)
 #define TRAPFRAME (TRAMPOLINE - PGSIZE)
 
-#define PSHARED (TRAPFRAME - PGSIZE)
-#define CSHARED (PSHARED - PGSIZE)
 #endif /* !COMMON_MEMLAYOUT_H_ */

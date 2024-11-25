@@ -53,6 +53,6 @@ entry("getlast");
 entry("setlast");
 entry("seed");
 entry("rand");
-entry("thread_create")
-entry("thread_join")
-entry("thread_exit")
+entry("thread_create");
+entry("thread_join");
+entry("thread_exit");

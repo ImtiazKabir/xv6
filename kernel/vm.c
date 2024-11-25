@@ -311,6 +311,35 @@ err:
   return -1;
 }
 
+// shared memory for child thread
+// returns 0 on success, -1 on failure.
+// frees any allocated pages on failure.
+int uvmmirror(pagetable_t old, pagetable_t new, uint64 sz) {
+  pte_t *pte;
+  uint64 pa, i;
+  uint flags;
+
+  for (i = 0; i < sz; i += PGSIZE) {
+    if ((pte = walk(old, i, 0)) == 0)
+      panic("uvmmirror: pte should exist");
+    if ((*pte & PTE_V) == 0)
+      panic("uvmmirror: page not present");
+    pa = PTE2PA(*pte);
+    flags = PTE_FLAGS(*pte);
+
+    /* no new allocation */
+
+    if (mappages(new, i, PGSIZE, (uint64)pa, flags) != 0) {
+      goto err;
+    }
+  }
+  return 0;
+
+err:
+  uvmunmap(new, 0, i / PGSIZE, 1);
+  return -1;
+}
+
 // mark a PTE invalid for user access.
 // used by exec for the user stack guard page.
 void uvmclear(pagetable_t pagetable, uint64 va) {

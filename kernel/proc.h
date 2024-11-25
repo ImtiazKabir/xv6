@@ -114,6 +114,7 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   int trace_id;                // Syscall id to trace
+  int is_thread;               // whether the process is really a thread
 
   char const command_history[128][128]; // command history of shell
   uint8 command_index;                  // where to put last command
@@ -123,7 +124,8 @@ extern struct proc proc[NPROC];
 
 int cpuid(void);
 void exit(int status);
-int fork(void);
+struct proc *fork(void);
+struct proc *forkmirror(void);
 int growproc(int n);
 void proc_mapstacks(pagetable_t kpgtbl);
 pagetable_t proc_pagetable(struct proc *p);

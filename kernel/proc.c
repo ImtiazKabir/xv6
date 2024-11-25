@@ -172,8 +172,9 @@ static void freeproc(struct proc *p) {
     kfree(p->pshared);
   if (p->cshared)
     kfree(p->cshared);
-  if (p->pagetable)
+  if (p->pagetable) {
     proc_freepagetable(p->pagetable, p->sz);
+  }
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -215,24 +216,6 @@ pagetable_t proc_pagetable(struct proc *p) {
     return 0;
   }
 
-  if (mappages(pagetable, PSHARED, PGSIZE, (uint64)(p->pshared),
-               PTE_R | PTE_W | PTE_U) < 0) {
-    uvmunmap(pagetable, TRAMPOLINE, 1, 0);
-    uvmfree(pagetable, 0);
-    return 0;
-  }
-
-  // map the cshared page
-  if (mappages(pagetable, CSHARED, PGSIZE, (uint64)(p->cshared),
-               PTE_R | PTE_W | PTE_U) < 0) {
-    if (initproc == 0) {
-      uvmunmap(pagetable, PSHARED, 1, 0);
-    }
-    uvmunmap(pagetable, TRAMPOLINE, 1, 0);
-    uvmfree(pagetable, 0);
-    return 0;
-  }
-
   return pagetable;
 }
 
@@ -241,8 +224,6 @@ pagetable_t proc_pagetable(struct proc *p) {
 void proc_freepagetable(pagetable_t pagetable, uint64 sz) {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
-  uvmunmap(pagetable, PSHARED, 1, 0);
-  uvmunmap(pagetable, CSHARED, 1, 0);
   uvmfree(pagetable, sz);
 }
 
@@ -300,50 +281,27 @@ int growproc(int n) {
 
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
-int fork(void) {
-  int i, pid;
+struct proc *fork(void) {
+  int i;
   struct proc *np;
   struct proc *p = myproc();
 
   // Allocate process.
   if ((np = allocproc()) == 0) {
-    return -1;
+    return 0;
   }
 
   // Copy user memory from parent to child.
   if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
     freeproc(np);
     release(&np->lock);
-    return -1;
+    return 0;
   }
   np->sz = p->sz;
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
-  // unmap pshared page, because it was mapped to the same physical pshared
-  // page of the parent process
-  uvmunmap(np->pagetable, PSHARED, 1, 0);
-  // map pshared page for the child process to the cshared page of the parent
-  // process
-  if (mappages(np->pagetable, PSHARED, PGSIZE, (uint64)(p->cshared),
-               PTE_R | PTE_W | PTE_U) < 0) {
-    uvmunmap(np->pagetable, TRAMPOLINE, 1, 0);
-    uvmfree(np->pagetable, 0);
-    return 0;
-  }
-
-  // unmap cshared page, because it was mapped to the same physical cshared page
-  // of the parent process
-  uvmunmap(np->pagetable, CSHARED, 1, 0);
-  // map new cshared page for the child process
-  if (mappages(np->pagetable, CSHARED, PGSIZE, (uint64)(np->cshared),
-               PTE_R | PTE_W | PTE_U) < 0) {
-    uvmunmap(np->pagetable, TRAMPOLINE, 1, 0);
-    uvmunmap(np->pagetable, PSHARED, 1, 0);
-    uvmfree(np->pagetable, 0);
-    return 0;
-  }
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
@@ -356,8 +314,6 @@ int fork(void) {
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
-  pid = np->pid;
-
   release(&np->lock);
 
   acquire(&wait_lock);
@@ -368,8 +324,24 @@ int fork(void) {
   np->state = RUNNABLE;
   release(&np->lock);
 
-  return pid;
+  return np;
 }
+
+struct proc *forkmirror(void) {
+  register struct proc *const p = myproc();
+  register struct proc *const np = fork();
+
+  // unmap the forked unshared memory
+  uvmunmap(np->pagetable, 0, np->sz / PGSIZE, 1);
+
+  // Mirror the parent's memory into the child's page table
+  if (uvmmirror(p->pagetable, np->pagetable, p->sz) < 0) {
+    panic("forkmirror: failed to mirror pages");
+  }
+
+  return np;
+}
+
 
 // Pass p's abandoned children to init.
 // Caller must hold wait_lock.

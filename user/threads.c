@@ -1,9 +1,11 @@
 #include "common/riscv.h"
 #include "common/types.h"
 #include "common/stat.h"
+#include "user/mutex.h"
 #include "usys.h"
 #include "printf.h"
 #include "umalloc.h"
+#include "spinlock.h"
 
 struct balance {
     char name[32];
@@ -11,6 +13,8 @@ struct balance {
 };
 
 volatile int total_balance = 0;
+static struct thread_spinlock lock = {0};
+static struct thread_mutex mlock = {0};
 
 unsigned int delay (unsigned int d) {
    unsigned int i; 
@@ -30,14 +34,14 @@ void do_work(void *arg){
 
     for (i = 0; i < b->amount; i++) { 
         // lock and mlock will be implemented by you.
-         // thread_spin_lock(&lock);
-         // thread_mutex_lock(&mlock);
+          // thread_spin_lock(&lock);
+         thread_mutex_lock(&mlock);
          old = total_balance;
          delay(100000);
 	 // if(old != total_balance)  printf("we will miss an update. old: %d total_balance: %d\n", old, total_balance);
          total_balance = old + 1;
-         //thread_spin_unlock(&lock);
-         // thread_mutex_lock(&mlock);
+         // thread_spin_unlock(&lock);
+         thread_mutex_unlock(&mlock);
 
     }
   
@@ -56,6 +60,9 @@ int main(int argc, char *argv[]) {
   int thread1, thread2, r1, r2;
 
   (void)argc, (void)argv;
+
+  thread_spin_init(&lock);
+  thread_mutex_init(&mlock);
 
   s1 = malloc(PGSIZE);
   s2 = malloc(PGSIZE);

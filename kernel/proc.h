@@ -126,7 +126,7 @@ int cpuid(void);
 void exit(int status);
 struct proc *allocproc(void);
 void freeproc(struct proc *p);
-struct proc *fork(int process);
+int fork(void);
 int growproc(int n);
 void proc_mapstacks(pagetable_t kpgtbl);
 pagetable_t proc_pagetable(struct proc *p);

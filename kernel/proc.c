@@ -258,33 +258,25 @@ int growproc(int n) {
 
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
-struct proc *fork(register int const process) {
-  int i;
+int fork(void) {
+  int i, pid;
   struct proc *np;
   struct proc *p = myproc();
-  int ret;
 
   // Allocate process.
   if ((np = allocproc()) == 0) {
     return 0;
   }
 
-  if (process != 0) {
-    // Copy user memory from parent to child.
-    ret = uvmcopy(p->pagetable, np->pagetable, p->sz);
-  } else {
-    ret = uvmmirror(p->pagetable, np->pagetable, p->sz);
-  }
-  if (ret < 0) {
-      freeproc(np);
-      release(&np->lock);
-      return 0;
+  if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
+    freeproc(np);
+    release(&np->lock);
+    return 0;
   }
   np->sz = p->sz;
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
-
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
@@ -297,6 +289,7 @@ struct proc *fork(register int const process) {
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
+  pid = np->pid;
   release(&np->lock);
 
   acquire(&wait_lock);
@@ -307,9 +300,8 @@ struct proc *fork(register int const process) {
   np->state = RUNNABLE;
   release(&np->lock);
 
-  return np;
+  return pid;
 }
-
 
 // Pass p's abandoned children to init.
 // Caller must hold wait_lock.

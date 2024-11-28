@@ -1,30 +1,67 @@
 #include "common/riscv.h"
+#include "file.h"
+#include "fs.h"
 #include "kernel/proc.h"
+#include "string.h"
 #include "syscall.h"
-#include "printf.h"
+#include "vm.h"
 
 #define FAKE_RETURN_ADDRESS 0xffffffff
 
 uint64 sys_thread_create(void) {
-  register struct proc *const np = fork(0);
   auto uint64 stack = 0u;
 
+  int i, pid;
+  struct proc *np;
+  struct proc *p = myproc();
+
+  // Allocate process.
+  if ((np = allocproc()) == 0) {
+    return 0;
+  }
+
+  if (uvmmirror(p->pagetable, np->pagetable, p->sz) < 0) {
+    freeproc(np);
+    release(&np->lock);
+    return 0;
+  }
+  np->sz = p->sz;
+
+  // copy saved user registers.
+  *(np->trapframe) = *(p->trapframe);
+
+  // increment reference counts on open file descriptors.
+  for (i = 0; i < NOFILE; i++)
+    if (p->ofile[i])
+      np->ofile[i] = filedup(p->ofile[i]);
+  np->cwd = idup(p->cwd);
+
+  safestrcpy(np->name, p->name, sizeof(p->name));
+
+  pid = np->pid;
+  release(&np->lock);
+
+  acquire(&wait_lock);
+  np->parent = p;
+  release(&wait_lock);
+
+  acquire(&np->lock);
+  np->state = RUNNABLE;
   argaddr(0, &(np->trapframe->epc));
   argaddr(1, &(np->trapframe->a0));
-
   argaddr(2, &stack);
   np->trapframe->sp = stack + PGSIZE;
-
   np->trapframe->ra = FAKE_RETURN_ADDRESS;
   np->is_thread = 1;
+  release(&np->lock);
 
-  return (uint64) np->pid;
+  return pid;
 }
 
 // Wait for a thread to exit
 // Return -1 if this process has no children.
 uint64 sys_thread_join(void) {
-  register int const tid = (int) argraw(0);
+  register int const tid = (int)argraw(0);
   struct proc *pp;
   int havekids;
   struct proc *p = myproc();
@@ -62,9 +99,7 @@ uint64 sys_thread_join(void) {
   }
 }
 
-
 uint64 sys_thread_exit(void) {
   exit(0);
   return 0;
 }
-

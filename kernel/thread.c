@@ -13,12 +13,12 @@
 
 #define FAKE_RETURN_ADDRESS 0xffffffff
 
-uint64 sys_thread_create(void) {
+// Create a new thread, copying the parent.
+// Sets up child kernel stack to return as if from thread_create() system call.
+extern int thread_create(register uint64 const start, register uint64 const arg,
+                         register uint64 const stack) {
   /* Copied from fork() */
   /* CHANGE: 1) calling tvmcopy instead of uvmcopy, 2) initializing thread */
-
-  auto uint64 stack = 0u;
-
   int i, pid;
   struct proc *np;
   struct proc *p = myproc();
@@ -55,9 +55,8 @@ uint64 sys_thread_create(void) {
 
   acquire(&np->lock);
   np->state = RUNNABLE;
-  argaddr(0, &(np->trapframe->epc));
-  argaddr(1, &(np->trapframe->a0));
-  argaddr(2, &stack);
+  np->trapframe->epc = start;
+  np->trapframe->a0 = arg;
   np->trapframe->sp = stack + PGSIZE;
   np->trapframe->ra = FAKE_RETURN_ADDRESS;
   np->is_thread = 1;
@@ -68,12 +67,10 @@ uint64 sys_thread_create(void) {
 
 // Wait for a thread to exit
 // Return -1 if this process has no children.
-uint64 sys_thread_join(void) {
+extern int thread_join(register int const tid) {
   /* Copied from wait() */
   /* CHANGE: only looking for a perticular thread, also not passing the ret val
    */
-
-  register int const tid = (int)argraw(0);
   struct proc *pp;
   int havekids;
   struct proc *p = myproc();
@@ -94,7 +91,7 @@ uint64 sys_thread_join(void) {
           freeproc(pp);
           release(&pp->lock);
           release(&wait_lock);
-          return (uint64)tid;
+          return tid;
         }
         release(&pp->lock);
       }
@@ -103,7 +100,7 @@ uint64 sys_thread_join(void) {
     // No point waiting if we don't have any children.
     if (!havekids || killed(p)) {
       release(&wait_lock);
-      return (uint64)-1;
+      return -1;
     }
 
     // Wait for a child to exit.
@@ -111,14 +108,12 @@ uint64 sys_thread_join(void) {
   }
 }
 
-uint64 sys_thread_exit(void) {
-  exit(0);
-  return 0;
-}
+extern void thread_exit(void) { exit(0); }
 
 // Free a process's page table, and free the
 // physical memory it refers to.
-void thread_freepagetable(pagetable_t pagetable, uint64 sz) {
+extern void thread_freepagetable(register pagetable_t const pagetable,
+                                 register uint64 const sz) {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
   tvmfree(pagetable, sz);

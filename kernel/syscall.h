@@ -42,6 +42,9 @@ uint64 sys_getlast(void);
 uint64 sys_setlast(void);
 uint64 sys_seed(void);
 uint64 sys_rand(void);
+uint64 sys_thread_create(void);
+uint64 sys_thread_join(void);
+uint64 sys_thread_exit(void);
 
 extern uint64 (*syscalls[])(void);
 

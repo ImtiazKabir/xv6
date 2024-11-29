@@ -4,9 +4,9 @@
 #include "common/types.h"
 #include "proc.h"
 
-uint64 sys_thread_create(void);
-uint64 sys_thread_join(void);
-uint64 sys_thread_exit(void);
+int thread_create(uint64 start, uint64 arg, uint64 stack);
+int thread_join(int thread_id);
+void thread_exit(void);
 void thread_freepagetable(pagetable_t pagetable, uint64 sz);
 
-#endif /* KERNEL_THREAD_H_ */
+#endif /* !KERNEL_THREAD_H_ */

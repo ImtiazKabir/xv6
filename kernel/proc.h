@@ -95,10 +95,7 @@ extern struct spinlock wait_lock;
 struct proc {
   struct spinlock lock;
   struct spinlock own_memlock;
-  struct spinlock
-      *memlock; // if proc is actually a thread and proc is orphan, then memlock
-                // points to own_memlock if proc is actually a thread but has a
-                // parent thread, then memlock = parent->memlock
+  struct spinlock *memlock; // = is_thread? parent->memlock: &own_memlock
 
   // p->lock must be held when using these:
   enum procstate state; // Process state

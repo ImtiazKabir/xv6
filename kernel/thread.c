@@ -60,6 +60,7 @@ extern int thread_create(register uint64 const start, register uint64 const arg,
   np->trapframe->sp = stack + PGSIZE;
   np->trapframe->ra = FAKE_RETURN_ADDRESS;
   np->is_thread = 1;
+  np->memlock = p->memlock;
   release(&np->lock);
 
   return pid;

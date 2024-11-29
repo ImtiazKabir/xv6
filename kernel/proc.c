@@ -140,6 +140,10 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->is_thread = 0;
+  p->memlock = &p->own_memlock;
+  initlock(p->memlock, "memlock");
+
   return p;
 }
 

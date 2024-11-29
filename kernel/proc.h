@@ -1,5 +1,6 @@
 #ifndef KERNEL_PROC_H_
 #define KERNEL_PROC_H_
+
 #include "common/param.h"
 #include "common/types.h"
 #include "riscv.h"
@@ -93,6 +94,11 @@ extern struct spinlock wait_lock;
 // Per-process state
 struct proc {
   struct spinlock lock;
+  struct spinlock own_memlock;
+  struct spinlock
+      *memlock; // if proc is actually a thread and proc is orphan, then memlock
+                // points to own_memlock if proc is actually a thread but has a
+                // parent thread, then memlock = parent->memlock
 
   // p->lock must be held when using these:
   enum procstate state; // Process state

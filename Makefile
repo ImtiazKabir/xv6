@@ -35,6 +35,7 @@ OBJS = \
   $K/trace.o \
   $K/rand.o \
   $K/thread.o \
+  $K/tvm.o \
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin

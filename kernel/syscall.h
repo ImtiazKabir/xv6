@@ -1,8 +1,9 @@
 #ifndef KERNEL_SYSCALL_H_
 #define KERNEL_SYSCALL_H_
 
-#include "common/types.h"
 #include "common/syscall.h"
+#include "common/types.h"
+#include "thread.h"
 
 // syscall.c
 void argint(int n, int *ip);
@@ -41,9 +42,6 @@ uint64 sys_getlast(void);
 uint64 sys_setlast(void);
 uint64 sys_seed(void);
 uint64 sys_rand(void);
-uint64 sys_thread_create(void);
-uint64 sys_thread_join(void);
-uint64 sys_thread_exit(void);
 
 extern uint64 (*syscalls[])(void);
 

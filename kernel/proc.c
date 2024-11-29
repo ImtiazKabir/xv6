@@ -12,6 +12,7 @@
 #include "spinlock.h"
 #include "string.h"
 #include "swtch.h"
+#include "thread.h"
 #include "trap.h"
 #include "vm.h"
 
@@ -149,8 +150,12 @@ void freeproc(struct proc *p) {
   if (p->trapframe)
     kfree((void *)p->trapframe);
   p->trapframe = 0;
-  if (p->is_thread == 0 && p->pagetable) {
-    proc_freepagetable(p->pagetable, p->sz);
+  if (p->pagetable) {
+    if (p->is_thread == 0) {
+      proc_freepagetable(p->pagetable, p->sz);
+    } else {
+      thread_freepagetable(p->pagetable, p->sz);
+    }
   }
   p->pagetable = 0;
   p->sz = 0;

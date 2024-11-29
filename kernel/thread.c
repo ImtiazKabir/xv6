@@ -1,9 +1,14 @@
+#include "thread.h"
+
+#include "common/memlayout.h"
 #include "common/riscv.h"
+
 #include "file.h"
 #include "fs.h"
 #include "kernel/proc.h"
 #include "string.h"
 #include "syscall.h"
+#include "tvm.h"
 #include "vm.h"
 
 #define FAKE_RETURN_ADDRESS 0xffffffff
@@ -20,7 +25,7 @@ uint64 sys_thread_create(void) {
     return 0;
   }
 
-  if (uvmmirror(p->pagetable, np->pagetable, p->sz) < 0) {
+  if (tvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
     freeproc(np);
     release(&np->lock);
     return 0;
@@ -102,4 +107,12 @@ uint64 sys_thread_join(void) {
 uint64 sys_thread_exit(void) {
   exit(0);
   return 0;
+}
+
+// Free a process's page table, and free the
+// physical memory it refers to.
+void thread_freepagetable(pagetable_t pagetable, uint64 sz) {
+  uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+  uvmunmap(pagetable, TRAPFRAME, 1, 0);
+  tvmfree(pagetable, sz);
 }

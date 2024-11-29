@@ -15,6 +15,7 @@
 #include "thread.h"
 #include "trap.h"
 #include "vm.h"
+#include "tvm.h"
 
 struct cpu cpus[NCPU];
 
@@ -247,22 +248,34 @@ void userinit(void) {
   release(&p->lock);
 }
 
+
 // Grow or shrink user memory by n bytes.
 // Return 0 on success, -1 on failure.
 int growproc(int n) {
   uint64 sz;
   struct proc *p = myproc();
+  int ret = -1;
+
+  acquire(p->memlock);
 
   sz = p->sz;
   if (n > 0) {
     if ((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
-      return -1;
+      goto growproc_err;
+    }
+    if (growthread(p, p->sz, sz) < 0) {
+      goto growproc_err;
     }
   } else if (n < 0) {
     sz = uvmdealloc(p->pagetable, sz, sz + n);
+    shrinkthread(p, p->sz, sz);
   }
   p->sz = sz;
-  return 0;
+  ret = 0;
+
+growproc_err:
+  release(p->memlock);
+  return ret;
 }
 
 // Create a new process, copying the parent.
@@ -360,6 +373,7 @@ void exit(int status) {
 
   p->xstate = status;
   p->state = ZOMBIE;
+  p->memlock = 0;
 
   release(&wait_lock);
 

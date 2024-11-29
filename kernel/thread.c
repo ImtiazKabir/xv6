@@ -14,6 +14,9 @@
 #define FAKE_RETURN_ADDRESS 0xffffffff
 
 uint64 sys_thread_create(void) {
+  /* Copied from fork() */
+  /* CHANGE: 1) calling tvmcopy instead of uvmcopy, 2) initializing thread */
+
   auto uint64 stack = 0u;
 
   int i, pid;
@@ -66,6 +69,10 @@ uint64 sys_thread_create(void) {
 // Wait for a thread to exit
 // Return -1 if this process has no children.
 uint64 sys_thread_join(void) {
+  /* Copied from wait() */
+  /* CHANGE: only looking for a perticular thread, also not passing the ret val
+   */
+
   register int const tid = (int)argraw(0);
   struct proc *pp;
   int havekids;

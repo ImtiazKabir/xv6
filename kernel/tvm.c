@@ -44,7 +44,7 @@ int tvmrcopy(pagetable_t old, pagetable_t new, uint64 oldsz, uint64 newsz) {
   uint64 pa, i;
   uint flags;
 
-  for (i = oldsz; i < newsz; i += PGSIZE) {
+  for (i = PGROUNDUP(oldsz); i < newsz; i += PGSIZE) {
     if ((pte = walk(old, i, 0)) == 0)
       panic("tvmrcopy: pte should exist");
     if ((*pte & PTE_V) == 0)

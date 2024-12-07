@@ -54,13 +54,13 @@ extern int thread_create(register uint64 const start, register uint64 const arg,
   release(&wait_lock);
 
   acquire(&np->lock);
-  np->state = RUNNABLE;
   np->trapframe->epc = start;
   np->trapframe->a0 = arg;
   np->trapframe->sp = stack + PGSIZE;
   np->trapframe->ra = FAKE_RETURN_ADDRESS;
   np->is_thread = 1;
   np->memlock = p->memlock;
+  np->state = RUNNABLE;
   release(&np->lock);
 
   return pid;

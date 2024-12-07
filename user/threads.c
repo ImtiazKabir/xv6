@@ -30,7 +30,10 @@ void do_work(void *arg){
     int old;
    
     struct balance *b = (struct balance*) arg; 
+
+    thread_mutex_lock(&mlock);
     printf( "Starting do_work: s:%s\n", b->name);
+    thread_mutex_unlock(&mlock);
 
     for (i = 0; i < b->amount; i++) { 
         // lock and mlock will be implemented by you.
@@ -45,7 +48,9 @@ void do_work(void *arg){
 
     }
   
+    thread_mutex_lock(&mlock);
     printf( "Done s:%s\n", b->name);
+    thread_mutex_unlock(&mlock);
 
     thread_exit();
     return;

@@ -41,6 +41,8 @@ uint64 sys_getlast(void);
 uint64 sys_setlast(void);
 uint64 sys_seed(void);
 uint64 sys_rand(void);
+uint64 sys_getpinfo(void);
+uint64 sys_settickets(void);
 
 extern uint64 (*syscalls[])(void);
 

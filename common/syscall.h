@@ -29,6 +29,8 @@
 #define SYS_setlast 25
 #define SYS_seed 26
 #define SYS_rand 27
+#define SYS_getpinfo 28
+#define SYS_settickets 29
 
 
 #endif /* !COMMON_SYSCALL_H_ */

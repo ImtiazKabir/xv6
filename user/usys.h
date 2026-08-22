@@ -1,6 +1,7 @@
 #ifndef USER_USYS_H_
 #define USER_USYS_H_
 
+#include "common/pstat.h"
 #include "common/types.h"
 
 struct procInfo;
@@ -34,5 +35,7 @@ int getlast(char *dest, int index);
 int setlast(char const *cmd);
 void seed(uint64 seed);
 uint64 rand(void);
+int getpinfo(struct pstat *stat);
+int settickets(int number);
 
 #endif /* !USER_USYS_H_ */

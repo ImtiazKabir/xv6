@@ -1,9 +1,12 @@
 #include "common/memlayout.h"
 #include "common/param.h"
 #include "common/procinfo.h"
+#include "common/pstat.h"
 #include "common/types.h"
 
 #include "proc.h"
+#include "spinlock.h"
+#include "string.h"
 #include "syscall.h"
 #include "trap.h"
 #include "vm.h"
@@ -76,13 +79,12 @@ uint64 sys_uptime(void) {
 }
 
 uint64 sys_info(void) {
-  auto void *dst = 0;
+  auto uint64 dst = 0;
   auto struct procInfo info = {.activeProcess = 0,
                                .totalProcess = NPROC,
                                .memsize = 0,
                                .totalMemSize = PHYSTOP - KERNBASE};
   register struct proc *p = 0;
-  ;
 
   for (p = proc; p < &proc[NPROC]; p += 1) {
     acquire(&p->lock);
@@ -93,8 +95,40 @@ uint64 sys_info(void) {
     release(&p->lock);
   }
 
-  argaddr(0, (void *)&dst);
+  argaddr(0, &dst);
   (void)copyout(myproc()->pagetable, (uint64)dst, (void *)&info, sizeof(info));
 
   return 0u;
 }
+
+uint64 sys_getpinfo(void) {
+  auto uint64 dst = 0;
+  auto struct pstat stat = {0};
+
+  fill_pinfo(&stat);
+
+  argaddr(0, &dst);
+  if (dst == 0) {
+    return (uint64)-1;
+  }
+  (void)copyout(myproc()->pagetable, (uint64)dst, (void *)&stat, sizeof(stat));
+
+  return 0u;
+}
+
+uint64 sys_settickets(void) {
+  register struct proc *const p = myproc();
+  register uint const tickets = (uint)argraw(0);
+  register uint64 ret = 0;
+  acquire(&p->lock);
+  if (tickets > 0) {
+    p->tickets_original = tickets;
+  } else {
+    p->tickets_original = DEFAULT_TICKETS;
+    ret = (uint64)-1;
+  }
+  p->tickets_current = p->tickets_original;
+  release(&p->lock);
+  return ret;
+}
+

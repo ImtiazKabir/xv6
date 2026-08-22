@@ -25,3 +25,4 @@
 #define DEFAULT_QUEUE LOTTERY_QUEUE
 
 #endif /* !COMMON_PARAM_H_ */
+

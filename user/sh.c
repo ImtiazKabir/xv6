@@ -1,5 +1,6 @@
 // Shell.
 
+#include "common/ansi.h"
 #include "common/fcntl.h"
 #include "printf.h"
 #include "ulib.h"
@@ -151,11 +152,13 @@ int main(void) {
       break;
     }
   }
+  printf(ANSI_FG_GREEN);
   printf(" ____   ___   ___  ____   ___  _  _   _\n"
          "|___ \\ / _ \\ / _ \\| ___| / _ \\| || | / |\n"
          "  __) | | | | | | |___ \\| | | | || |_| |\n"
          " / __/| |_| | |_| |___) | |_| |__   _| |\n"
          "|_____|\\___/ \\___/|____/ \\___/   |_| |_|\n\n");
+  printf(ANSI_RESET);
 
   // Read and run input commands.
   while (getcmd(buf, sizeof(buf)) >= 0) {

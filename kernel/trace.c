@@ -1,3 +1,4 @@
+#include "common/syscall.h"
 #include "syscall.h"
 #include "proc.h"
 #include "common/util.h"
@@ -33,7 +34,9 @@ static char const *const syscall_name[] = {
 [SYS_getlast] = "getlast",
 [SYS_setlast] = "setlast",
 [SYS_seed] = "seed",
-[SYS_rand] = "rand"
+[SYS_rand] = "rand",
+[SYS_getpinfo] = "getpinfo",
+[SYS_settickets] = "settickets"
 };
 // clang-format on
 
@@ -134,6 +137,12 @@ void trace(struct proc *p) {
       printf("%d", (int)argraw(0));
       break;
     case SYS_rand:
+      break;
+    case SYS_getpinfo:
+      printf("%p", (void *)argraw(0));
+      break;
+    case SYS_settickets:
+      printf("%d", (int)argraw(0));
       break;
     default:
       printf("Adding a new syscall? Try making it tracable\n");

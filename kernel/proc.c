@@ -1,23 +1,28 @@
 #include "proc.h"
 #include "common/memlayout.h"
 #include "common/param.h"
+#include "common/pstat.h"
+#include "common/riscv.h"
 #include "common/types.h"
+#include "common/ansi.h"
 #include "common/util.h"
 #include "file.h"
 #include "fs.h"
 #include "kalloc.h"
 #include "log.h"
 #include "printf.h"
+#include "rand.h"
 #include "riscv.h"
 #include "spinlock.h"
 #include "string.h"
 #include "swtch.h"
+#include "syscall.h"
 #include "trap.h"
 #include "vm.h"
 
 struct cpu cpus[NCPU];
 
-struct proc proc[NPROC];
+struct proc proc[NPROC] = {0};
 
 struct proc *initproc = 0;
 
@@ -157,6 +162,10 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  p->queue_index = DEFAULT_QUEUE;
+  p->tickets_original = DEFAULT_TICKETS;
+  p->tickets_current = p->tickets_original;
 
   return p;
 }
@@ -368,6 +377,11 @@ int fork(void) {
   np->state = RUNNABLE;
   release(&np->lock);
 
+  /* child current tickets should be equal to parent's original ticket */
+  /* A dying mother does not bear a dying child */
+  np->tickets_original = p->tickets_original;
+  np->tickets_current = np->tickets_original;
+
   return pid;
 }
 
@@ -474,6 +488,117 @@ int wait(uint64 addr) {
   }
 }
 
+uint run(register struct proc *const p, register uint const time) {
+  register uint t = 0;
+  while ((p->state == RUNNABLE) && (p->running_time < time)) {
+    // Switch to chosen process.  It is the process's job
+    // to release its lock and then reacquire it
+    // before jumping back to us.
+    p->state = RUNNING;
+    mycpu()->proc = p;
+    swtch(&mycpu()->context, &p->context);
+    mycpu()->proc = 0;
+    p->running_time += 1;
+    p->queue_ticks[p->queue_index] += 1;
+    acquire(&tickslock);
+    p->last_sched_time = ticks;
+    release(&tickslock);
+  }
+
+  t = p->running_time;
+
+  p->running_time = 0;
+  p->times_scheduled += 1;
+
+  return t;
+}
+
+int lottery_sched(void) {
+  register struct proc *p = 0;
+  auto uint index[NPROC] = {0};
+  auto uint ticket[NPROC] = {0};
+  register uint i = 0;
+  register uint len = 0;
+  register uint winner = 0;
+
+  for (p = proc, i = 0; p < &proc[NPROC]; p += 1, i += 1) {
+    acquire(&p->lock);
+    if (p->state == RUNNABLE && p->queue_index == LOTTERY_QUEUE &&
+        p->tickets_current > 0) {
+      len += 1;
+      index[len - 1] = i;
+      ticket[len - 1] = p->tickets_current;
+    }
+    release(&p->lock);
+  }
+
+  if (len == 0) {
+    return 1;
+  }
+
+  winner = index[choose((uint64 *)ticket, len)];
+  acquire(&proc[winner].lock);
+
+#ifdef DEBUG
+  printf(ANSI_FG_YELLOW "LOTTERY:" ANSI_RESET " Process %d (%s) won in queue %d with tickets %u\n", proc[winner].pid, proc[winner].name, LOTTERY_QUEUE, proc[winner].tickets_current);
+#endif /* ifdef DEBUG */
+
+  {
+    register int const rtime = run(&proc[winner], TIME_LIMIT_0);
+
+#ifdef DEBUG
+    printf(ANSI_FG_MAGENTA "INFO:" ANSI_RESET " Process %d (%s) has spent %u ticks in queue %d\n", proc[winner].pid, proc[winner].name, rtime, LOTTERY_QUEUE);
+#endif /* ifdef DEBUG */
+
+    if (rtime == TIME_LIMIT_0) {
+
+#ifdef DEBUG
+      printf(ANSI_FG_RED "DEMO:" ANSI_RESET " Process %d (%s) ran for %u timer ticks, demoted to queue %d\n", proc[winner].pid, proc[winner].name, rtime, ROUND_ROBIN_QUEUE);
+#endif /* ifdef DEBUG */
+
+      proc[winner].queue_index = ROUND_ROBIN_QUEUE;
+    }
+  }
+
+  proc[winner].tickets_current -= 1;
+  if (proc[winner].tickets_current == 0) {
+#ifdef DEBUG
+        printf(ANSI_FG_RED "DEMO:" ANSI_RESET " Process %d (%s) exhausted all its tickets, demoted to queue %d\n", proc[winner].pid, proc[winner].name, ROUND_ROBIN_QUEUE);
+#endif /* ifdef DEBUG */
+    proc[winner].queue_index = ROUND_ROBIN_QUEUE;
+  }
+  release(&proc[winner].lock);
+
+  return 0;
+}
+
+void round_robin_sched(void) {
+  struct proc *p = 0;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+
+    if (p->queue_index != ROUND_ROBIN_QUEUE) {
+      release(&p->lock);
+      continue;
+    }
+
+    if (p->state == RUNNABLE) {
+      register uint const rtime = run(p, TIME_LIMIT_1);
+#ifdef DEBUG
+        printf(ANSI_FG_MAGENTA "INFO:" ANSI_RESET " Process %d (%s) has spent %u ticks in queue %d\n", p->pid, p->name, rtime, ROUND_ROBIN_QUEUE);
+#endif /* ifdef DEBUG */
+      if (rtime < TIME_LIMIT_1 && p->tickets_current > 0) {
+#ifdef DEBUG
+        printf(ANSI_FG_GREEN "PROMO:" ANSI_RESET " Process %d (%s) ran for %u timer ticks, promoted to queue %d\n", p->pid, p->name, rtime, LOTTERY_QUEUE);
+#endif /* ifdef DEBUG */
+        p->queue_index = LOTTERY_QUEUE;
+      }
+    }
+
+    release(&p->lock);
+  }
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -482,32 +607,12 @@ int wait(uint64 addr) {
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
 void scheduler(void) {
-  struct proc *p;
-  struct cpu *c = mycpu();
-
-  c->proc = 0;
+  mycpu()->proc = 0;
   for (;;) {
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting.
     intr_on();
-
-    for (p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if (p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-      }
-      release(&p->lock);
+    while (lottery_sched() == 0) {
     }
+    round_robin_sched();
   }
 }
 
@@ -675,32 +780,127 @@ int either_copyin(void *dst, int user_src, uint64 src, uint64 len) {
   }
 }
 
+static void itoa(register int num, register char *const str,
+                 register int const width) {
+  int i = width - 1;
+
+  // Fill with spaces initially
+  for (int j = 0; j < width; j++) {
+    str[j] = ' ';
+  }
+
+  // Handle zero case specifically
+  if (num == 0) {
+    str[i] = '0';
+    return;
+  }
+
+  // Convert number to string from the end for non-zero numbers
+  while (num > 0 && i >= 0) {
+    str[i--] = '0' + (num % 10);
+    num /= 10;
+  }
+}
+static void putstat(register struct pstat const *const stat) {
+  register int i = 0;
+
+  printf("PID  | In Use | In Q | Waiting time | Running time | # Times "
+         "Scheduled | Original Tickets | Current Tickets | q0  | q1\n");
+  printf("-----|--------|------|--------------|--------------|-----------------"
+         "--|------------------|-----------------|-----|-----\n");
+
+  for (i = 0; i < NPROC; i += 1) {
+    enum { BUFFER_SIZE = 150 };
+    char line[BUFFER_SIZE] = {0};
+
+    if (stat->pid[i] <= 0) {
+      /* not an actual process; just skip it */
+      continue;
+    }
+
+    memset(line, ' ', BUFFER_SIZE);
+    line[BUFFER_SIZE - 1] = '\0';
+
+    // Place each integer in the correct position
+    itoa(stat->pid[i], line + 0, 3);
+    itoa(stat->inuse[i], line + 8, 3);
+    itoa(stat->inQ[i], line + 16, 3);
+    itoa(stat->waiting_time[i], line + 29, 3);
+    itoa(stat->running_time[i], line + 43, 3);
+    itoa(stat->times_scheduled[i], line + 60, 3);
+    itoa(stat->tickets_original[i], line + 80, 3);
+    itoa(stat->tickets_current[i], line + 99, 3);
+    itoa((int)stat->queue_ticks[i][0], line + 110, 3);
+    itoa((int)stat->queue_ticks[i][1], line + 115, 3);
+
+    // Print the formatted line
+    printf("%s\n", line);
+  }
+}
+
+void fill_pinfo(register struct pstat *const stat) {
+  register struct proc *p = 0;
+  register int i = 0;
+  for (p = proc, i = 0; p < &proc[NPROC]; p += 1, i += 1) {
+    acquire(&p->lock);
+    if (p->state == UNUSED) {
+      goto filldone;
+    }
+    stat->pid[i] = p->pid;
+
+    if ((p->state == RUNNING) || (p->state == RUNNABLE)) {
+      stat->inuse[i] = 1;
+    } else {
+      stat->inuse[i] = 0;
+    }
+
+    stat->inQ[i] = p->queue_index;
+
+    acquire(&tickslock);
+    stat->waiting_time[i] = ticks - p->last_sched_time;
+    release(&tickslock);
+
+    stat->times_scheduled[i] = p->times_scheduled;
+    stat->tickets_original[i] = p->tickets_original;
+    stat->tickets_current[i] = p->tickets_current;
+    stat->queue_ticks[i][0] = p->queue_ticks[0];
+    stat->queue_ticks[i][1] = p->queue_ticks[1];
+
+  filldone:
+    release(&p->lock);
+  }
+}
+
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
 void procdump(void) {
-  /* clang-format off */
-  static char const *states[] = {
-  [UNUSED]    =  "unused",
-  [USED]      =  "used",
-  [SLEEPING]  =  "sleep ",
-  [RUNNABLE]  =  "runble",
-  [RUNNING]   =  "run   ",
-  [ZOMBIE]    =  "zombie"
-  };
-  /* clang-format on */
-  struct proc *p;
-  char const *state;
+  // /* clang-format off */
+  // static char const *states[] = {
+  // [UNUSED]    =  "unused",
+  // [USED]      =  "used",
+  // [SLEEPING]  =  "sleep ",
+  // [RUNNABLE]  =  "runble",
+  // [RUNNING]   =  "run   ",
+  // [ZOMBIE]    =  "zombie"
+  // };
+  // /* clang-format on */
+  // struct proc *p;
+  // char const *state;
+  //
+  // printf("\n");
+  // for (p = proc; p < &proc[NPROC]; p++) {
+  //   if (p->state == UNUSED)
+  //     continue;
+  //   if (p->state >= 0 && p->state < NELEM(states) && states[p->state])
+  //     state = states[p->state];
+  //   else
+  //     state = "???";
+  //   printf("%d %s %s", p->pid, state, p->name);
+  //   printf("\n");
+  // }
 
-  printf("\n");
-  for (p = proc; p < &proc[NPROC]; p++) {
-    if (p->state == UNUSED)
-      continue;
-    if (p->state >= 0 && p->state < NELEM(states) && states[p->state])
-      state = states[p->state];
-    else
-      state = "???";
-    printf("%d %s %s", p->pid, state, p->name);
-    printf("\n");
-  }
+  auto struct pstat stat = {0};
+  fill_pinfo(&stat);
+  putstat(&stat);
 }

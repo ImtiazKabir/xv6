@@ -1,6 +1,7 @@
 #ifndef KERNEL_PROC_H_
 #define KERNEL_PROC_H_
-#include "common/param.h"
+#include "param.h"
+#include "common/pstat.h"
 #include "common/types.h"
 #include "riscv.h"
 #include "spinlock.h"
@@ -117,6 +118,14 @@ struct proc {
 
   char const command_history[128][128]; // command history of shell
   uint8 command_index;                  // where to put last command
+
+  int queue_index;       // which queue it is in (LOTTERY or ROUND_ROBIN)
+  uint last_sched_time;  // start time of waiting
+  uint running_time;     // how long it has been running, 0 to TIME_SLICE
+  uint tickets_original; // original tickets (changable by settickets)
+  uint tickets_current;  // current tickets (refilled by the scheduler)
+  uint times_scheduled;  // number of times the process got its turn
+  uint queue_ticks[2];   // how many ticks it spent in which queue
 };
 
 extern struct proc proc[NPROC];
@@ -135,6 +144,7 @@ struct cpu *mycpu(void);
 struct cpu *getmycpu(void);
 struct proc *myproc(void);
 void procinit(void);
+uint run(register struct proc *p, uint time);
 void scheduler(void) __attribute__((noreturn));
 void sched(void);
 void sleep(void *chan, struct spinlock *lk);
@@ -144,6 +154,7 @@ void wakeup(void *chan);
 void yield(void);
 int either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int either_copyin(void *dst, int user_src, uint64 src, uint64 len);
+void fill_pinfo(struct pstat *stat);
 void procdump(void);
 
 #endif /* !KERNEL_PROC_H_ */

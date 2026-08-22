@@ -1,6 +1,8 @@
 #include "trap.h"
 #include "common/memlayout.h"
+#include "common/param.h"
 #include "common/types.h"
+#include "common/ansi.h"
 #include "plic.h"
 #include "printf.h"
 #include "proc.h"
@@ -150,7 +152,36 @@ void kerneltrap() {
   w_sstatus(sstatus);
 }
 
-void clockintr() {
+void clockintr(void) {
+  register struct proc *p = 0;
+  register uint64 total_tickets = 0;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    uint wait_time = 0;
+    p->queue_ticks[p->queue_index] += 1;
+    if (p->state != RUNNABLE) {
+      continue;
+    }
+    acquire(&tickslock);
+    wait_time = ticks + 1 - p->last_sched_time;
+    release(&tickslock);
+    if (wait_time > WAIT_THRESH && p->queue_index != LOTTERY_QUEUE && p->tickets_current > 0) {
+#ifdef DEBUG
+    printf(ANSI_FG_BLUE "BOOST:" ANSI_RESET " Process %d (%s) waited for %u ticks, promoted to %d\n", p->pid, p->name, wait_time, LOTTERY_QUEUE);
+#endif /* ifdef DEBUG */
+      p->queue_index = LOTTERY_QUEUE;
+    }
+    total_tickets += p->tickets_current;
+  }
+
+  if (total_tickets == 0) {
+    for (p = proc; p < &proc[NPROC]; p++) {
+      if (p->state == RUNNABLE) {
+        p->tickets_current = p->tickets_original;
+      }
+    }
+  }
+
   acquire(&tickslock);
   ticks++;
   wakeup(&ticks);

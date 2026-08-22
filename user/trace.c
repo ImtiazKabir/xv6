@@ -2,8 +2,6 @@
 #include "ulib.h"
 #include "usys.h"
 
-#define MAXARG 100
-
 int main(int argc, char *argv[]) {
   int i;
   char *nargv[MAXARG];

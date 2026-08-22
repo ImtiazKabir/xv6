@@ -53,3 +53,5 @@ entry("getlast");
 entry("setlast");
 entry("seed");
 entry("rand");
+entry("getpinfo");
+entry("settickets");
